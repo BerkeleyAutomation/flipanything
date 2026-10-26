@@ -265,11 +265,17 @@ footer{border-top:1px solid var(--border-soft);padding-block:40px;text-align:cen
 
     <div id="real" style="margin-top:48px">
       <h3 class="sub-title" style="margin-top:0;text-align:center">Real-world experiment</h3>
-      <div class="two-col" style="margin-top:18px">
+      <div class="strat-grid" style="margin-top:18px">
         <figure style="margin:0">
-          <div class="strat"><div class="vbox"><video autoplay muted loop playsinline preload="metadata" poster="media/real_tape_clamp_success_poster.jpg" aria-label="Real YAM rig flipping a blue tape roll, sped up 16 times"><source src="media/real_tape_clamp_success_16x.mp4" type="video/mp4"></video><span class="chip">real rig · 16× speed</span></div></div>
-          <figcaption class="caption"><strong>Tape roll on the real YAM bench.</strong> The arms pick up the tape roll and turn it over on the gridded mat. 8 min 19 s of real time, shown at 16×.</figcaption>
+          <div class="strat"><div class="vbox"><video autoplay muted loop playsinline preload="metadata" poster="media/real_clamp_success_poster.jpg" aria-label="Real YAM rig flipping a spring clamp with an in-air handover, sped up 8 times"><source src="media/real_clamp_success_8x.mp4" type="video/mp4"></video><span class="chip">real rig · 8× speed</span></div></div>
+          <figcaption class="caption"><strong>Spring clamp.</strong> One hand picks up the clamp, the other takes it in the air, and it is set down turned over. 3 min 44 s of real time, shown at 8×.</figcaption>
         </figure>
+        <figure style="margin:0">
+          <div class="strat"><div class="vbox"><video autoplay muted loop playsinline preload="metadata" poster="media/real_tape_success_run3_poster.jpg" aria-label="Real YAM rig flipping a blue tape roll with an in-air handover, sped up 8 times"><source src="media/real_tape_success_run3_8x.mp4" type="video/mp4"></video><span class="chip">real rig · 8× speed</span></div></div>
+          <figcaption class="caption"><strong>Tape roll.</strong> The left hand picks up the roll, the right hand takes it in the air, and it is set down turned over. 2 min 29 s of real time, shown at 8×.</figcaption>
+        </figure>
+      </div>
+      <div style="margin-top:24px">
         <ul class="bullet-list">
           <li><strong>Same arms, different eyes.</strong> The real bench uses the two YAM arms from simulation, but sees the scene through one overhead ZED Mini and a D405 wrist camera instead of four static cameras.</li>
           <li><strong>Same policy code.</strong> The code learned in simulation runs on the rig through a bridge that adds safety checks.</li>
