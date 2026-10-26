@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Flip Anything with Agentic Robotics Self-Learning: a coding agent writes, tests and repairs a bimanual RGB-D policy that flips 24 hand tools.">
+<title>Flip Anything</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: KiRoSe project-page template. Single column of full-width bands, centred section titles, fixed dot-nav on wide screens. Light theme only, by design (as in the template). */
+:root{
+  --bg:#f5f9ff; --bg-elev:#ecf3fd; --bg-card:#ffffff; --border:#dbe7f6; --border-soft:#e7eefb;
+  --text:#15233b; --text-dim:#44566f; --text-faint:#7488a3;
+  --accent:#2563eb; --accent-2:#0e9aa0; --accent-grad:linear-gradient(120deg,#2563eb 0%,#0ea5b5 100%);
+  --hl:rgba(37,99,235,.09); --warn:#b7791f; --bad:#b4483c; --good:#0e8a6a; --stage:#0b1220;
+  /* names used by the grasp-grid renderer */
+  --cam:#eb6834; --rej:#b4483c; --fg:#15233b; --panel:#ffffff; --muted:#7488a3; --hlo:#e3ebf6; --hhi:#24364f;
+  --font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --max-w:1080px; --radius:14px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;background:radial-gradient(60% 50% at 50% -10%,rgba(37,99,235,.08),transparent 70%),radial-gradient(40% 40% at 85% 10%,rgba(14,165,181,.06),transparent 70%);pointer-events:none;z-index:0}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.container{max-width:var(--max-w);margin:0 auto;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));position:relative;z-index:1}
+@media (max-width:480px){.container{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}}
+.container.wide{max-width:1340px}
+section{padding-block:80px;position:relative;z-index:1}
+h1,h2,h3{line-height:1.2;letter-spacing:-.02em;text-wrap:balance}
+.section-title{font-size:1.9rem;font-weight:800;margin:0 0 8px;text-align:center}
+.section-intro{color:var(--text-dim);margin:0 0 36px}
+.sub-title{font-size:1.25rem;font-weight:700;margin:48px 0 6px}
+.sub-intro{color:var(--text-dim);margin:0 0 18px}
+.band{background:var(--bg-elev);border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft)}
+.grad{background:var(--accent-grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+code,.mono{font-family:var(--mono);font-size:.86em}
+
+/* side nav */
+.sidenav{position:fixed;top:50%;left:max(24px,env(safe-area-inset-left,0px));transform:translateY(-50%);z-index:20;display:none;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.sidenav.shown{opacity:1;pointer-events:auto}
+.sidenav ul{list-style:none;margin:0;padding:0}
+.sidenav li{margin:2px 0}
+.sidenav a{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;color:var(--text-faint);font-size:.82rem;font-weight:500}
+.sidenav a:hover{color:var(--text);text-decoration:none}
+.sidenav .dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--text-faint);flex:0 0 auto;transition:all .18s ease}
+.sidenav .lbl{opacity:.6;white-space:nowrap}
+.sidenav a:hover .lbl,.sidenav a.active .lbl{opacity:1}
+.sidenav a.active{color:var(--text)}
+.sidenav a.active .dot{background:var(--accent-grad);border-color:transparent;box-shadow:0 0 10px rgba(37,99,235,.45);transform:scale(1.25)}
+@media (min-width:1460px){.sidenav{display:block}}
+
+/* hero */
+.hero{text-align:center;position:relative;z-index:1;padding-block:clamp(24px,4vh,48px) clamp(20px,3vh,36px)}
+.paper-title{font-size:clamp(1.5rem,3.2vw,2.6rem);font-weight:800;max-width:980px;margin:0 auto 16px;line-height:1.2;color:var(--text)}
+.authors{font-size:1.06rem;margin:4px auto}
+.authors a{color:var(--text)}
+.authors sup,.affiliations sup{color:var(--accent-2);font-size:.7em}
+.affiliations{color:var(--text-dim);font-size:.98rem;margin:4px auto 0}
+.btn-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:24px 0 32px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;background:var(--bg-card);border:1px solid var(--border);color:var(--text);font-weight:600;font-size:.95rem;font-family:var(--font);transition:transform .15s ease,border-color .15s ease}
+.btn:hover{transform:translateY(-2px);border-color:var(--accent);text-decoration:none}
+.btn svg{width:18px;height:18px;fill:currentColor}
+.btn.disabled{opacity:.45;pointer-events:none}
+.intro-video{margin:0 auto;max-width:1240px}
+.intro-video video{display:block;width:100%;height:auto;aspect-ratio:16/9;max-width:100%;border-radius:16px;border:1px solid var(--border);background:var(--bg-card)}
+.caption{color:var(--text-dim);font-size:.92rem;margin:16px 0 0;text-align:left}
+.caption strong{color:var(--text)}
+
+/* TL;DR + facts */
+.tldr-box{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 32px}
+@media (max-width:640px){.tldr-box{padding:20px}}
+.tldr-title{text-align:center;font-size:1.7rem;font-weight:800;margin:0 0 10px}
+.tldr-text{margin:0;color:var(--text-dim);font-size:1.06rem;line-height:1.75}
+.tldr-text .hl{color:var(--accent);font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:26px 0 0}
+.facts div{background:var(--bg-card);padding:16px 18px;min-width:0}
+.facts b{display:block;font-size:1.7rem;font-weight:800;background:var(--accent-grad);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.15;font-variant-numeric:tabular-nums}
+.facts span{font-size:.86rem;color:var(--text-dim)}
+@media (max-width:760px){.facts{grid-template-columns:repeat(2,1fr)}}
+
+/* generic blocks */
+.teaser-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-card)}
+.teaser-wrap video,.teaser-wrap img{display:block;width:100%;height:auto;max-width:100%}
+.two-col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:36px;align-items:center}
+@media (max-width:860px){.two-col{grid-template-columns:minmax(0,1fr)}}
+.two-col>*{min-width:0}
+.bullet-list{margin:0;padding:0;list-style:none}
+.bullet-list li{position:relative;padding:6px 0 6px 28px;color:var(--text-dim)}
+.bullet-list li::before{content:"";position:absolute;left:4px;top:15px;width:9px;height:9px;border-radius:2px;background:var(--accent-grad);transform:rotate(45deg)}
+.bullet-list strong{color:var(--text)}
+.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.feature-list.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:900px){.feature-list.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.feature-list,.feature-list.three{grid-template-columns:minmax(0,1fr)}}
+.feature-item{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;min-width:0}
+.feature-item h3{margin:0 0 8px;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.feature-item h3::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent-grad);flex:0 0 auto}
+.feature-item p{margin:0;color:var(--text-dim);line-height:1.6}
+.feature-item .src{display:block;margin-top:10px;font-family:var(--mono);font-size:.74rem;color:var(--text-faint)}
+.eq{font-family:var(--mono);font-size:.84rem;background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:9px 13px;margin:10px 0 0;color:var(--text);overflow-x:auto;white-space:nowrap}
+
+/* learning curve */
+.chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;position:relative}
+#curve{display:block;width:100%;min-width:720px;height:auto}
+#curve text{font-family:var(--font);font-size:12px;fill:var(--text-dim)}
+#curve .tk{font-family:var(--mono);font-size:11px;fill:var(--text-faint)}
+#curve .gl{stroke:var(--border-soft)}
+#curve .ann{font-size:11.5px;fill:var(--text);font-weight:600}
+#curve .pt{cursor:pointer}
+#curve .pt:hover circle{r:7}
+.tip{position:absolute;pointer-events:none;background:var(--text);color:#fff;font:12.5px/1.45 var(--font);padding:7px 10px;border-radius:8px;max-width:300px;z-index:5}
+.tip b{font-family:var(--mono);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem;color:var(--text-dim);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.findings{list-style:none;padding:0;margin:0;counter-reset:f;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:820px){.findings{grid-template-columns:minmax(0,1fr)}}
+.findings li{position:relative;padding:16px 16px 16px 52px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);color:var(--text-dim);min-width:0}
+.findings li::before{counter-increment:f;content:counter(f);position:absolute;left:16px;top:16px;width:24px;height:24px;border-radius:50%;background:var(--accent-grad);color:#fff;font-weight:800;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+.findings strong{color:var(--text)}
+.findings .rng{font-family:var(--mono);font-size:.78rem;color:var(--accent-2);display:block;margin-bottom:2px}
+
+/* tables */
+.table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card)}
+.result-table{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
+.result-table th,.result-table td{padding:9px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border-soft);vertical-align:top}
+.result-table th{color:var(--text-faint);font-weight:600;font-size:.78rem}
+.result-table .left{text-align:left}
+.result-table td.wrapc{white-space:normal;min-width:28ch;text-align:left;color:var(--text-dim)}
+.result-table tbody tr:last-child td{border-bottom:none}
+.result-table td.best{color:var(--accent-2);font-weight:700}
+.result-table td.low{color:var(--bad);font-weight:600}
+.result-table tr.highlight td{background:var(--hl);font-weight:600}
+.minibar{display:inline-block;height:6px;border-radius:3px;background:var(--accent-grad);vertical-align:middle;margin-left:8px}
+
+/* primitives */
+.strat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+@media (max-width:820px){.strat-grid{grid-template-columns:minmax(0,1fr)}}
+.strat{min-width:0}
+.strat .vbox{position:relative;background:var(--stage);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.strat video{display:block;width:100%;height:auto;aspect-ratio:2/1;max-width:100%}
+.chip{position:absolute;top:10px;left:10px;font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(11,18,32,.66);padding:4px 9px;border-radius:999px}
+.strat h3{margin:12px 0 4px;font-size:1.08rem}
+.strat p{margin:0;color:var(--text-dim);font-size:.95rem}
+.fam{margin-top:36px}
+.prim-table td.left b{color:var(--text);font-weight:600}
+.ver{display:inline-block;font-family:var(--mono);font-size:.72rem;padding:1px 7px;border-radius:999px;background:var(--hl);color:var(--accent);margin-left:6px;white-space:nowrap}
+.prims{display:flex;flex-wrap:wrap;gap:6px 8px}
+.prim{display:inline-flex;align-items:center;font-size:.86rem;color:var(--text);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px 9px}
+.prim .ver{margin-left:7px}
+
+/* perception pipeline */
+.pipe{display:grid;gap:0}
+.stage{display:grid;grid-template-columns:40px minmax(0,1fr);gap:16px}
+.rail{display:flex;flex-direction:column;align-items:center}
+.num{width:30px;height:30px;border-radius:50%;background:var(--accent-grad);color:#fff;font-weight:800;font-size:.8rem;display:grid;place-items:center;flex:none}
+.stem{width:2px;flex:1;background:var(--border);min-height:14px}
+.scard{padding-bottom:22px;min-width:0}
+.scard h3{margin:3px 0 4px;font-size:1.05rem}
+.algo{display:inline-block;font-family:var(--mono);font-size:.76rem;background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:2px 8px;border-radius:6px}
+.scard ul{margin:6px 0 0;padding-left:18px;color:var(--text-dim);font-size:.94rem}
+.scard .src{display:block;font-family:var(--mono);font-size:.74rem;color:var(--text-faint);margin-top:4px}
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.gcard{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px;display:grid;gap:6px;min-width:0;align-content:start}
+.gcard svg{width:100%;height:auto;display:block}
+.gcard h4{margin:0;font-size:.86rem;font-weight:600;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.gcard .pill{font-family:var(--mono);font-size:.68rem;padding:1px 6px;border-radius:10px;background:var(--hl);color:var(--accent);white-space:nowrap}
+.gcard .pill.no{background:transparent;border:1px solid var(--cam);color:var(--cam)}
+.gcard .stats{font-family:var(--mono);font-size:.7rem;color:var(--text-faint);line-height:1.45}
+.glegend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.8rem;color:var(--text-dim);margin:0 0 14px}
+.glegend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:18px;height:4px;border-radius:2px}
+
+/* video gallery */
+.eps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:18px}
+@media (max-width:900px){.eps{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:560px){.eps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ep{min-width:0;font-family:var(--font);text-align:left;background:var(--bg-card);color:var(--text-dim);border:1px solid var(--border);border-radius:10px;padding:7px 12px;cursor:pointer;display:flex;flex-direction:column;gap:1px;transition:border-color .15s ease}
+.ep:hover{border-color:var(--accent)}
+.ep b{font-weight:600;font-size:.84rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep small{font-family:var(--mono);font-size:.7rem;color:var(--text-faint)}
+.ep small.fail{color:var(--bad)}
+.ep[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
+.vmain{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.vmain{grid-template-columns:minmax(0,1fr)}}
+.vmain>*{min-width:0}
+.vstage{background:var(--stage);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.vstage video{display:block;width:100%;height:auto;aspect-ratio:2/1;max-width:100%}
+.vinfo{display:grid;gap:12px}
+.vinfo h3{margin:0;font-size:1.3rem}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:.92rem;margin:0}
+.kv dt{color:var(--text-faint);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.kv dd{margin:0;color:var(--text)}
+.ok{color:var(--good);font-weight:700}.no{color:var(--bad);font-weight:700}
+
+/* bibtex + footer */
+.bibtex-box{position:relative;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.bibtex-box pre{margin:0;padding:22px;overflow-x:auto;font-family:var(--mono);font-size:.82rem;color:var(--text-dim);line-height:1.7}
+.copy-btn{position:absolute;top:12px;right:12px;padding:7px 14px;font-size:.8rem;font-weight:600;font-family:var(--font);border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+footer{border-top:1px solid var(--border-soft);padding-block:40px;text-align:center;color:var(--text-faint);font-size:.88rem;position:relative;z-index:1}
+@media (max-width:640px){section{padding-block:52px}.btn{padding:9px 16px;font-size:.9rem}}
+</style>
+</head>
+<body>
+
+<nav class="sidenav" id="sidenav" aria-label="Section navigation">
+  <ul>
+    <li><a href="#setup"><span class="dot"></span><span class="lbl">Task Setup</span></a></li>
+    <li><a href="#learning"><span class="dot"></span><span class="lbl">Self-Learning</span></a></li>
+    <li><a href="#primitives"><span class="dot"></span><span class="lbl">Motion Primitives</span></a></li>
+    <li><a href="#perception"><span class="dot"></span><span class="lbl">Perception</span></a></li>
+    <li><a href="#results"><span class="dot"></span><span class="lbl">Results</span></a></li>
+    <li><a href="#videos"><span class="dot"></span><span class="lbl">Video Examples</span></a></li>
+  </ul>
+</nav>
+
+<header class="hero" id="top">
+  <div class="container wide">
+    <h1 class="paper-title"><span class="grad">Flip Anything</span> with Agentic Robotics Self-Learning</h1>
+    <div class="authors">
+      <span><a href="https://ehehee.github.io/" target="_blank" rel="noreferrer">Shuangyu Xie</a><sup>1</sup>, </span>
+      <span><a href="https://keplerc.github.io/" target="_blank" rel="noreferrer">Kaiyuan Chen</a><sup>1</sup>, </span>
+      <span><a href="https://goldberg.berkeley.edu/" target="_blank" rel="noreferrer">Ken Goldberg</a><sup>1</sup></span>
+    </div>
+    <div class="affiliations"><span><sup>1</sup>University of California, Berkeley</span></div>
+    <div class="btn-row">
+      <a class="btn disabled" href="#" aria-disabled="true" title="Coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6zM14 3.5V8h4.5z"/></svg><span>Paper</span></a>
+      <a class="btn disabled" href="#" aria-disabled="true" title="Coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg><span>Code</span></a>
+      <a class="btn" href="#videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a1 1 0 0 1 1 1v3.5l4-2.5v10l-4-2.5V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg><span>Videos</span></a>
+      <a class="btn" href="#results"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h3v10zm6.5 0V4h3v16zM17 20v-7h3v7z"/></svg><span>Results</span></a>
+    </div>
+    <figure class="intro-video" style="margin:0 auto">
+      <video id="heroVid" autoplay muted loop playsinline preload="auto" poster="media/hero_poster.jpg" aria-label="All 24 FlipAnything tools in parallel simulation, shown for policy v005, v016 and v036 with per-tool success out of 15 episodes">
+        <source src="media/hero.mp4" type="video/mp4">
+      </video>
+      <figcaption class="caption"><strong>Flip Anything: agentic self-learning in simulation.</strong> The same 24 tools, one episode each, run by three snapshots of the policy. The badge on each tile is that tool's success count over its 15 tune episodes: v005 reaches ≥ 90 % on 11 of 24 tools, v016 on 20 of 24, and v036 on 22 of 24.</figcaption>
+    </figure>
+  </div>
+</header>
+
+<section class="band" style="padding-block:56px">
+  <div class="container">
+    <div class="tldr-box">
+      <h2 class="tldr-title grad">TL;DR</h2>
+      <p class="tldr-text">Two YAM arms must turn an industrial hand tool <span class="hl">face down</span> on a mat and let go, using only <span class="hl">static RGB-D cameras and the joint encoders</span> (four cameras in simulation). A coding agent builds the policy from scratch as ordinary, inspectable code and improves it in a <span class="hl">self-learning loop</span>: run 360 simulated episodes, group the failures by mechanism, change the source, and regression-test. Over 36 versions the agent added <span class="hl">20 motion primitives in 5 families</span>, combined into 4 flip strategies, and took the tune success rate from 24.7 % to 95.0 %. Nothing is learned inside the policy; what is learned lives in the code.</p>
+      <div class="facts">
+        <div><b>95.0%</b><span>best tune run, v036 (342 / 360)</span></div>
+        <div><b>90.8%</b><span>held-out, frozen v016 (109 / 120)</span></div>
+        <div><b>88.3%</b><span>v016 with depth noise and calibration error</span></div>
+        <div><b>36</b><span>policy versions, 26 full tune evaluations</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="container">
+    <h2 class="section-title">Task Setup</h2>
+    <p class="section-intro">FlipAnything: 24 hand tools, each spawned face up at a random pose on a gridded mat in front of a bimanual YAM rig. One policy has to flip all of them, without being told which tool it is looking at.</p>
+    <div class="two-col">
+      <figure style="margin:0">
+        <div class="teaser-wrap"><video autoplay muted loop playsinline preload="auto" poster="media/setup_poster.jpg" aria-label="Grid of the 24 tools turning from face up to face down, ending with a 24 of 24 flipped badge"><source src="media/setup.mp4" type="video/mp4"></video></div>
+        <figcaption class="caption"><strong>Figure 1. The 24 objects.</strong> Each tile turns one tool from face up to face down. The set spans 5 mm surgical scissors, lock nuts, tape rolls, boards, pliers and a 0.6 kg power drill.</figcaption>
+      </figure>
+      <ul class="bullet-list">
+        <li><strong>Robot.</strong> Two 6-DoF YAM arms with parallel grippers. Action: 14 joint and gripper targets at 50 Hz.</li>
+        <li><strong>Sensing in simulation.</strong> RGB and depth from four fixed cameras (top, bench, close, profile) plus joint and finger encoders. No wrist camera. The real rig differs; see <a href="#perception">Perception</a>.</li>
+        <li><strong>Never read.</strong> Object pose, meshes, tool names, segmentation masks or the score.</li>
+        <li><strong>Success.</strong> Face down (cos ≤ −0.9), on the mat, at rest, released, both hands clear, held for 1.5 s, all within 80 s.</li>
+        <li><strong>Splits.</strong> Tune: 24 tools × episodes 0–14 (360). Held-out: episodes 15–19 (120), one registered run per frozen version.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="learning">
+  <div class="container">
+    <h2 class="section-title">The Self-Learning Loop</h2>
+    <p class="section-intro">Each iteration is a frozen snapshot evaluated on all 360 tune episodes. The agent reads the policy's own event log, groups the failures by the first mechanism recorded (no plan, lost grip, squeeze-out, receiving-hand pinch, false "done", lost track), writes a probe for the largest group, changes the code and evaluates again. Every version is kept, including the regressions. Run-to-run spread on identical code is about ±1.4 points.</p>
+    <div class="chart-card" id="curveBox">
+      <svg id="curve" viewBox="0 0 980 420" role="img" aria-label="Tune success rate by policy version, v001 to v036, with the primitive added at each milestone"></svg>
+      <div class="tip" id="curveTip" hidden></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>Tune success, all 24 tools (360 episodes)</span>
+      <span><i style="background:var(--bad)"></i>Regression, later fixed or reverted</span>
+      <span><i style="background:var(--accent-2)"></i>Held-out (one run per frozen version)</span>
+      <span>Hover a point for what that version changed.</span>
+    </div>
+
+    <h3 class="sub-title">Six phases of learning</h3>
+    <ol class="findings" style="margin-top:14px">
+      <li><span class="rng">v001 → v005 · 24.7 → 80.6 %</span><strong>Build the mechanisms.</strong> 235 of 271 early failures were "no plan". The agent added in-hand ICP registration, then stand and topple for compact parts, then a strategy cascade.</li>
+      <li><span class="rng">v006 → v011 · 73.9 → 81.4 %</span><strong>Make the pinch hold.</strong> Pads move to the widest band, gentle release, verified B pinch. Three regressions, each a grasp rule that removed one tool's only grasp.</li>
+      <li><span class="rng">v012 → v016 · 86.9 → 89.4 %</span><strong>Reach 90 %.</strong> Push look-ahead, bridged sections, fingertip touch-off and a guarded-descent fix. v016 frozen: 90.8 % held-out, 88.3 % under sensor noise.</li>
+      <li><span class="rng">v017 → v024 · 89–91 %</span><strong>Plateau.</strong> Test lift, reposition, slow roll, partial-turn finish, face-normal placement, B deepen. Each moves one or two tools; the total stays inside the noise.</li>
+      <li><span class="rng">v025 → v030 · 91.9 %</span><strong>Graph-as-Policy audit.</strong> The loop was re-expressed as a GaP workflow. Same score, but per-node failure attribution pointed at the next two levers.</li>
+      <li><span class="rng">v033 → v036 · 94.7 → 95.0 %</span><strong>Toward 98 %.</strong> A guarded-contact pinch takes the 5 mm scissors from 0 to 13 of 15; a face check after drops removes most false "face down" beliefs.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="primitives">
+  <div class="container">
+    <h2 class="section-title">Learned Motion Primitives</h2>
+    <p class="section-intro">The policy flips a tool with one of four strategies, chosen per observation from geometry and reachability, with both hand assignments searched. The strategies are built from 20 motion primitives. The chip on each primitive is the version where the self-learning loop added it or made it work; unmarked ones were in the first version.</p>
+    <div class="strat-grid">
+      <div class="strat">
+        <div class="vbox"><video autoplay muted loop playsinline preload="metadata" aria-label="Claw hammer flipped by in-air handover"><source src="videos/claw_hammer_0.mp4" type="video/mp4"></video><span class="chip">claw hammer · 27 s</span></div>
+        <h3>1 · In-air handover <span class="ver">v001</span></h3>
+        <p>Hand A pinches top-down, lifts and rolls 90°. Hand B pinches the far face, A releases, and B rolls back and sets the tool down face down. Used for 19 of 24 tools.</p>
+      </div>
+      <div class="strat">
+        <div class="vbox"><video autoplay muted loop playsinline preload="metadata" aria-label="Pipe wrench repositioned then handed over"><source src="videos/pipe_wrench_9.mp4" type="video/mp4"></video><span class="chip">pipe wrench · 39 s</span></div>
+        <h3>2 · Reposition, then handover <span class="ver">v017</span></h3>
+        <p>When no handover is reachable, A carries the tool to the middle of the mat, rotating it if needed. The target pose is chosen by planning the handover on the predicted scene.</p>
+      </div>
+      <div class="strat">
+        <div class="vbox"><video autoplay muted loop playsinline preload="metadata" aria-label="Nylon lock nut stood on edge then toppled"><source src="videos/nylon_lock_nut_0.mp4" type="video/mp4"></video><span class="chip">nylon lock nut · 21 s</span></div>
+        <h3>3 · Stand, then topple <span class="ver">v003</span></h3>
+        <p>For compact parts. A pivots the part about its bottom edge onto its side, past the tipping angle atan(W/H) read from the height map. B pushes it the rest of the way over.</p>
+      </div>
+      <div class="strat">
+        <div class="vbox"><video autoplay muted loop playsinline preload="metadata" aria-label="Multimeter pushed upright then toppled"><source src="videos/multimeter_0.mp4" type="video/mp4"></video><span class="chip">multimeter · 16 s</span></div>
+        <h3>4 · Push-stand, then topple <span class="ver">v005</span></h3>
+        <p>For parts too wide to pinch. Two arc pushes with closed fingertips and no grasp. Since v012 the first direction is chosen so that the second push is also reachable.</p>
+      </div>
+    </div>
+
+    <h3 class="sub-title">20 primitives in 5 families</h3>
+    <p class="sub-intro">Each row is a family. The table-assisted and in-hand families grew most during self-learning, because those were where episodes failed.</p>
+    <div class="table-scroll">
+      <table class="result-table prim-table">
+        <thead><tr><th class="left">Family</th><th class="left">Primitives</th></tr></thead>
+        <tbody>
+          <tr><td class="left"><b>Free motion &amp; safety</b><br><span class="mono" style="color:var(--text-faint)">4</span></td><td class="left"><div class="prims"><span class="prim">joint-space approach</span><span class="prim">move home</span><span class="prim">guarded descent, stop on stall<span class="ver">fixed v015</span></span><span class="prim">fingertip touch-off<span class="ver">v014</span></span></div></td></tr>
+          <tr><td class="left"><b>Grasping</b><br><span class="mono" style="color:var(--text-faint)">4</span></td><td class="left"><div class="prims"><span class="prim">pinch close<span class="ver">widest band v006</span></span><span class="prim">1 cm test lift<span class="ver">v017</span></span><span class="prim">open-to-width gentle release<span class="ver">v008</span></span><span class="prim">back off along the fingers<span class="ver">v008</span></span></div></td></tr>
+          <tr><td class="left"><b>In-hand &amp; bimanual</b><br><span class="mono" style="color:var(--text-faint)">6</span></td><td class="left"><div class="prims"><span class="prim">lift and roll 90°<span class="ver">slow v019</span></span><span class="prim">A in-hand pose correction (ICP)<span class="ver">v002</span></span><span class="prim">B approach and insert</span><span class="prim">B deepen and re-close<span class="ver">v024</span></span><span class="prim">A put-back, reversing its own path<span class="ver">v009</span></span><span class="prim">B roll by the face normal<span class="ver">v022</span></span></div></td></tr>
+          <tr><td class="left"><b>Table-assisted</b><br><span class="mono" style="color:var(--text-faint)">5</span></td><td class="left"><div class="prims"><span class="prim">pinch pivot about the bottom edge<span class="ver">v003</span></span><span class="prim">arc push with press-in bias<span class="ver">v003</span></span><span class="prim">brace the far edge while pushing</span><span class="prim">press a propped part flat</span><span class="prim">set down to contact</span></div></td></tr>
+          <tr><td class="left"><b>Transport</b><br><span class="mono" style="color:var(--text-faint)">1</span></td><td class="left"><div class="prims"><span class="prim">pick, carry, rotate, place<span class="ver">v017</span></span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-title">Checks learned from failures</h3>
+    <p class="sub-intro">Most of the gain after v010 came from runtime checks wrapped around the primitives. Each turns a drop into a retry.</p>
+    <div class="feature-list three">
+      <div class="feature-item"><h3>Verify before letting go</h3><p>B's pinch is checked from the finger encoder before A releases (v010); A's grip after closing (v011). A width narrower than the planned section sends B 8 mm deeper (v024).</p></div>
+      <div class="feature-item"><h3>Catch slips early</h3><p>A 1 cm test lift catches a pinch squeezing out before the full lift (v017). The part is set down and re-planned instead of dropped mid-air.</p></div>
+      <div class="feature-item"><h3>Know the outcome</h3><p>A tool stopped part-way through a topple is finished with another push (v021). After a drop, the visible top is aligned against the first-seen top to tell up from down (v036).</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="perception">
+  <div class="container">
+    <h2 class="section-title">Perception Pipeline</h2>
+    <p class="section-intro">Four fixed RGB-D cameras, no wrist camera and no learned models. Every step is explicit geometry: filtering, RANSAC, connected components, PCA and ICP. The pipeline runs every time the policy re-observes: at the start, after each stage, and when checking a grasp or a placement.</p>
+    <div class="facts" style="margin:0 0 40px">
+      <div><b>4</b><span>static RGB-D cameras</span></div>
+      <div><b>0</b><span>wrist cameras</span></div>
+      <div><b>0</b><span>neural nets or segmentation channel</span></div>
+      <div><b>4 mm</b><span>height-map grid</span></div>
+    </div>
+
+    <figure style="margin:0">
+      <div class="teaser-wrap"><img src="media/yam_setup.jpg" alt="Bimanual YAM setup: two 6-DoF arms with parallel-jaw grippers, a ZED Mini overhead camera and a D405 wrist camera, with example overhead and right-wrist RGB frames" loading="lazy" width="1800" height="1029"></div>
+      <figcaption class="caption"><strong>Figure 2. The real bimanual YAM rig.</strong> Two 6-DoF arms with parallel-jaw grippers in the RoboSimStudio reconstruction of the real bench, with its ZED Mini overhead camera and D405 wrist camera. Figure from the <a href="https://ehehee.github.io/blog/open-gemini-harness/" target="_blank" rel="noreferrer">open Gemini harness</a> post.</figcaption>
+    </figure>
+    <div class="table-scroll" style="margin:24px 0 16px">
+      <table class="result-table">
+        <thead><tr><th class="left">Camera setting</th><th class="left">Self-learning (simulation)</th><th class="left">Real rig (Figure 2)</th></tr></thead>
+        <tbody>
+          <tr><td class="left">Static cameras</td><td class="wrapc">4 rendered RGB-D cameras: top, bench, close, profile</td><td class="wrapc">1 ZED Mini stereo camera overhead</td></tr>
+          <tr><td class="left">Wrist camera</td><td class="wrapc">None</td><td class="wrapc">D405 on the right wrist</td></tr>
+          <tr><td class="left">Depth</td><td class="wrapc">Rendered planar depth; optional noise ∝ z², dropout and extrinsic error</td><td class="wrapc">Stereo depth from real sensors</td></tr>
+          <tr><td class="left">Viewpoints of the object</td><td class="wrapc">Four views from fixed, separated poses</td><td class="wrapc">One fixed overhead view, plus the moving wrist view</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption" style="margin:0 0 40px;padding:12px 16px;border:1px solid var(--warn);border-radius:10px;background:var(--bg-card)"><strong>The two camera settings differ.</strong> Every self-learning result on this page (the learning curve, the primitives, the per-tool scores and the videos) was measured with the four static simulation cameras below. The real rig has a single overhead camera and a wrist camera, so the policy sees fewer and different viewpoints there. This is one of the sim-to-real gaps.</p>
+
+    <h3 class="sub-title" style="margin-top:0">Simulation pipeline, frame to object model</h3>
+    <div class="two-col" style="align-items:start">
+      <div class="pipe">
+        <div class="stage"><div class="rail"><div class="num">1</div><div class="stem"></div></div><div class="scard"><h3>Capture RGB-D</h3><span class="algo">RGB + planar depth, 4 cameras</span><ul><li>Segmentation is never requested. Optional robustness noise: depth noise ∝ z², dropout, per-camera extrinsic error.</li></ul><span class="src">sensors.py · RGBD.capture()</span></div></div>
+        <div class="stage"><div class="rail"><div class="num">2</div><div class="stem"></div></div><div class="scard"><h3>Clean depth</h3><span class="algo">5×5 median + flying-pixel rejection</span><ul><li>Drops pixels more than 2 cm from their neighbourhood median.</li></ul><span class="src">perception.py · clean_depth()</span></div></div>
+        <div class="stage"><div class="rail"><div class="num">3</div><div class="stem"></div></div><div class="scard"><h3>Back-project and fuse</h3><span class="algo">pinhole → world frame</span><ul><li>Every 2nd pixel, camera-to-world transform, all 4 clouds merged with colour and source camera. ROI x 0.30–0.92 m, y ±0.40 m.</li></ul><span class="src">perception.py · backproject()</span></div></div>
+        <div class="stage"><div class="rail"><div class="num">4</div><div class="stem"></div></div><div class="scard"><h3>Mask out the robot</h3><span class="algo">forward kinematics + collision spheres</span><ul><li>Both arms posed from the joint encoders; points within 18 mm of any collision primitive removed.</li></ul><span class="src">perception.py · robot_mask()</span></div></div>
+        <div class="stage"><div class="rail"><div class="num">5</div><div class="stem"></div></div><div class="scard"><h3>Fit the support plane</h3><span class="algo">sequential RANSAC + least squares</span><ul><li>Up to 3 near-horizontal planes; the highest large one is the mat. One plane per camera absorbs that camera's calibration offset.</li><li>If the cameras disagree by more than 2 mm, a fingertip <b>touch-off</b> measures the true height.</li></ul><span class="src">perception.py · fit_table()</span></div></div>
+        <div class="stage"><div class="rail"><div class="num">6</div><div class="stem"></div></div><div class="scard"><h3>Segment the object</h3><span class="algo">height threshold + 3-D connected components</span><ul><li>Points from max(3 mm, 3σ) to 30 cm above the plane, 8 mm voxels, 26-connected. Largest cluster is the object; occlusion splits are merged back.</li></ul><span class="src">perception.py · segment_object()</span></div></div>
+        <div class="stage"><div class="rail"><div class="num">7</div></div><div class="scard"><h3>Describe the object</h3><span class="algo">2.5-D height map + PCA footprint</span><ul><li>Max height and top colour on a 4 mm grid; the unseen underside is assumed to reach the table. PCA gives axes, extents, centre and height.</li></ul><span class="src">perception.py · HeightMap, describe()</span></div></div>
+      </div>
+      <div style="display:grid;gap:16px;min-width:0">
+        <div class="feature-item"><h3>Grasp candidates</h3><p>Pinch lines every 8 mm and 15° of yaw, kept when the section fits the 94 mm gripper. Pads at the widest band; wedges rejected; ranked by gravity stability.</p><div class="eq">cost = 0.6·|d_b| + 1.2·|d_c|·(3 cm / w)</div><span class="src">grasp.py · stability_cost()</span></div>
+        <div class="feature-item"><h3>Which face is up</h3><p>A yaw sweep plus 2-D ICP aligns the first-seen top surface to the current one. Footprint overlap, height RMS and colour difference decide up, side or down.</p><span class="src">faces.py</span></div>
+        <div class="feature-item"><h3>In-hand pose at handover</h3><p>Trimmed point-to-point ICP registers the pick-time model onto the points around the held tool (40 iterations, 12 mm trim). A corrects its pose or B re-plans.</p><span class="src">perception.py · icp()</span></div>
+        <div class="feature-item"><h3>Statics, not physics</h3><p>No mass or friction is estimated. Tipping angle and slide-vs-tip come from the perceived shape.</p><div class="eq">θ_tip = atan2(com→edge, H/2)</div><span class="src">topple.py</span></div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">Selected grasps, all 24 tools</h3>
+    <p class="sub-intro">Offline run of the policy on the saved episode-0 camera frames. Top-down view of the perceived height map, darker cells higher, world +x up the page. Everything shown is computed from the cameras; the tool mesh is never read.</p>
+    <div class="glegend">
+      <span><i class="sw" style="background:var(--cam);height:5px"></i>chosen pinch, pads at the ends</span>
+      <span><i class="sw" style="background:var(--accent)"></i>next-ranked candidates</span>
+      <span><i class="sw" style="background:var(--rej)"></i>rejected (sample)</span>
+      <span><i class="sw" style="width:9px;height:9px;border-radius:50%;background:var(--fg)"></i>estimated centre of mass</span>
+    </div>
+    <div id="grasp-grid" class="ggrid"></div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="container">
+    <h2 class="section-title">Results</h2>
+    <p class="section-intro">Tune column: v036, the best full run (342 / 360). Held-out column: v016, the frozen policy's single registered run on episodes 15–19, from before the scissors contact pinch existed. Strategy column: what the policy chose in the example episode for that tool.</p>
+    <div class="table-scroll">
+      <table class="result-table" id="toolTable">
+        <thead><tr><th class="left">Tool</th><th>Tune v036 (/ 15)</th><th>Held-out v016 (/ 5)</th><th class="left">Strategy in example episode</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <h3 class="sub-title">Robustness</h3>
+    <div class="table-scroll">
+      <table class="result-table">
+        <thead><tr><th class="left">Version</th><th>Tune (360)</th><th>Held-out (120)</th><th>Tune 0–4 with depth noise + calibration error</th></tr></thead>
+        <tbody>
+          <tr><td class="left">v001 handover only</td><td>24.7 %</td><td>–</td><td>–</td></tr>
+          <tr><td class="left">v012 push look-ahead</td><td>86.9 %</td><td>85.8 %</td><td>58.5 %</td></tr>
+          <tr class="highlight"><td class="left">v016 touch-off (frozen)</td><td>89.4 %</td><td class="best">90.8 %</td><td class="best">88.3 %</td></tr>
+          <tr><td class="left">v025 Graph-as-Policy</td><td>91.9 %</td><td>–</td><td>–</td></tr>
+          <tr class="highlight"><td class="left">v036 face check</td><td class="best">95.0 %</td><td>–</td><td>–</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">The fingertip touch-off is what made the policy robust to calibration error: under noise it moved the score from 65.8 % (v015) to 88.3 % (v016) while leaving the clean tune score unchanged.</p>
+  </div>
+</section>
+
+<section class="band" id="videos">
+  <div class="container">
+    <h2 class="section-title">Video Examples</h2>
+    <p class="section-intro">One recorded episode per tool from the frozen v021 policy. Left half: overview camera. Right half: side view. Pick a tool to play it.</p>
+    <div class="eps" id="eps" role="group" aria-label="Choose a tool"></div>
+    <div class="vmain">
+      <div class="vstage"><video id="epVid" controls autoplay muted loop playsinline preload="metadata" aria-label="Selected episode"></video></div>
+      <div class="vinfo">
+        <h3 id="epName">claw hammer</h3>
+        <dl class="kv">
+          <dt>Outcome</dt><dd id="epOk"></dd>
+          <dt>Time</dt><dd id="epTime"></dd>
+          <dt>Strategy</dt><dd id="epStrat"></dd>
+          <dt>Tune v036</dt><dd id="epTune"></dd>
+        </dl>
+        <p class="caption" style="margin:0">Success is judged by the simulator. The policy never sees the score; it decides it is done from its own observation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">Flip Anything · UC Berkeley · page layout after the KiRoSe project page</div>
+</footer>
+
+<script src="grasp-data.js"></script>
+<script>
+// ---------- data (from the FlipAnything results page) ----------
+const CURVE = [
+ ["v001",24.7,"In-air handover only. 235 of 271 failures: no plan found."],
+ ["v002",65.0,"In-hand RGB-D registration (ICP) before B commits; lower pinch."],
+ ["v003",75.3,"Stand and topple for compact parts. Multimeter 0 → 12."],
+ ["v004",64.4,"ICP change broke B's re-plan in 39 episodes. Reverted.",1],
+ ["v005",80.6,"Strategy cascade handover → stand → push-stand; thin parts."],
+ ["v006",73.9,"Pads at the widest band, wedges rejected. Lock nuts lost their only grasp.",1],
+ ["v007",80.0,"Robust plane fit and flying-pixel removal; stability ranking."],
+ ["v008",80.3,"Gentle release: open to held width + 20 mm, back off along the fingers."],
+ ["v009",76.4,"B retries while A holds; A puts back. Unbounded retries burned time.",1],
+ ["v010",81.4,"B's pinch verified from the finger encoder before A lets go."],
+ ["v011",80.0,"A's grip verified after closing; B depth from the section bottom."],
+ ["v012",86.9,"Push-stand picks its first direction so the second push is reachable."],
+ ["v013",88.1,"Pinch sections bridge holes: a ring is pinched across its diameter."],
+ ["v015",90.0,"Guarded descents no longer stop 4.6 cm early; open-hand collision check."],
+ ["v016",89.4,"Fingertip touch-off fixed. Frozen; held-out 90.8 %."],
+ ["v017",90.3,"Reposition primitive and 1 cm test lift."],
+ ["v019",91.1,"Slower roll in A's hand."],
+ ["v020",89.2,"Test-lift thresholds retuned."],
+ ["v021",90.3,"Finish a topple that stopped part-way."],
+ ["v022",90.0,"B places by turning the observed face normal straight down."],
+ ["v023",90.8,"Faster free motion; settle cut from 2 s to 1.2 s."],
+ ["v024",91.1,"B goes 8 mm deeper and re-closes when its width reads narrow."],
+ ["v025",91.9,"Loop expressed as a Graph-as-Policy workflow; same behaviour."],
+ ["v030",91.7,"Slip logic gated to the crank rig only."],
+ ["v033",94.7,"Guarded-contact pinch for parts under 6.5 mm. Scissors 0 → 12."],
+ ["v036",95.0,"Face check against the first-seen top after a drop. 342 / 360."]
+];
+const ANN = {v002:"in-hand ICP",v003:"stand + topple",v005:"strategy cascade",v010:"verify B pinch",v012:"push look-ahead",v016:"touch-off",v017:"test lift, reposition",v024:"B deepen",v033:"contact pinch",v036:"face check"};
+const HELD = {v012:85.8, v016:90.8};
+const TOOLS = ["breadboard","brown_tape","c_clamp","claw_hammer","combination_pliers","crimping_pliers","cutting_pliers","drill_bit_holder","e27_bulb_socket","esp32_breadboard","measuring_tape","multimeter","nylon_lock_nut","painters_tape","pipe_wrench","plastic_box_cutter","power_drill","safety_glasses","sanding_block_large","screwdriver","stover_lock_nut","surgical_scissors","tape_measure","wire_cutter_wall_mount"];
+const V036 = [15,15,15,14,15,14,15,15,15,12,12,15,15,15,13,13,13,15,15,14,15,13,14,15];
+const HELD_V016 = {breadboard:5,brown_tape:5,c_clamp:5,claw_hammer:5,combination_pliers:5,crimping_pliers:5,cutting_pliers:5,drill_bit_holder:5,e27_bulb_socket:4,esp32_breadboard:5,measuring_tape:5,multimeter:5,nylon_lock_nut:5,painters_tape:5,pipe_wrench:4,plastic_box_cutter:3,power_drill:5,safety_glasses:5,sanding_block_large:5,screwdriver:3,stover_lock_nut:5,surgical_scissors:0,tape_measure:5,wire_cutter_wall_mount:5};
+const VIDEOS = [{"tool":"claw_hammer","ep":0,"ok":true,"secs":27.4,"strat":["handover"]},{"tool":"multimeter","ep":0,"ok":true,"secs":16.3,"strat":["push-stand","topple"]},{"tool":"nylon_lock_nut","ep":0,"ok":true,"secs":21.4,"strat":["stand","topple"]},{"tool":"pipe_wrench","ep":9,"ok":true,"secs":39.1,"strat":["reposition","handover"]},{"tool":"e27_bulb_socket","ep":5,"ok":true,"secs":49.0,"strat":["stand","topple","handover"]},{"tool":"safety_glasses","ep":2,"ok":true,"secs":25.3,"strat":["handover"]},{"tool":"painters_tape","ep":0,"ok":true,"secs":25.7,"strat":["handover"]},{"tool":"screwdriver","ep":0,"ok":true,"secs":25.8,"strat":["handover"]},{"tool":"drill_bit_holder","ep":0,"ok":true,"secs":25.0,"strat":["handover"]},{"tool":"combination_pliers","ep":0,"ok":true,"secs":27.3,"strat":["handover"]},{"tool":"sanding_block_large","ep":0,"ok":true,"secs":26.4,"strat":["handover"]},{"tool":"c_clamp","ep":0,"ok":true,"secs":27.2,"strat":["handover"]},{"tool":"wire_cutter_wall_mount","ep":0,"ok":true,"secs":25.4,"strat":["handover"]},{"tool":"breadboard","ep":0,"ok":true,"secs":27.3,"strat":["handover"]},{"tool":"esp32_breadboard","ep":0,"ok":true,"secs":26.3,"strat":["handover"]},{"tool":"plastic_box_cutter","ep":0,"ok":true,"secs":26.1,"strat":["handover"]},{"tool":"power_drill","ep":0,"ok":true,"secs":30.4,"strat":["handover"]},{"tool":"crimping_pliers","ep":0,"ok":true,"secs":40.5,"strat":["handover","handover"]},{"tool":"cutting_pliers","ep":0,"ok":true,"secs":27.2,"strat":["handover"]},{"tool":"stover_lock_nut","ep":0,"ok":true,"secs":20.3,"strat":["stand","topple"]},{"tool":"brown_tape","ep":0,"ok":true,"secs":27.5,"strat":["handover"]},{"tool":"measuring_tape","ep":0,"ok":true,"secs":27.0,"strat":["handover"]},{"tool":"tape_measure","ep":0,"ok":true,"secs":37.0,"strat":["reposition","handover"]},{"tool":"surgical_scissors","ep":0,"ok":false,"secs":80.0,"strat":["handover"]}];
+const pretty = t => t.replace(/_/g, " ");
+const stratText = s => s.join(" → ");
+
+// ---------- learning curve ----------
+(function () {
+  const svg = document.getElementById("curve"), box = document.getElementById("curveBox"), tip = document.getElementById("curveTip");
+  const W = 980, H = 420, L = 50, R = 24, T = 30, B = 46, n = CURVE.length;
+  const x = i => L + i * (W - L - R) / (n - 1), y = v => T + (100 - v) * (H - T - B) / 80;  // y from 20 to 100
+  let s = "";
+  for (let g = 20; g <= 100; g += 20) s += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text class="tk" x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}%</text>`;
+  for (const [g, lab] of [[90, "90 % target"], [98, "98 % target"]]) s += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--text-faint)" stroke-dasharray="4 4"/><text x="${L + 6}" y="${y(g) - 5}" font-size="11" style="fill:var(--text-faint)">${lab}</text>`;
+  const pts = CURVE.map((d, i) => [x(i), y(d[1])]);
+  s += `<path d="M${pts[0][0]},${y(20)} ${pts.map(p => "L" + p.join(",")).join(" ")} L${pts[n - 1][0]},${y(20)}Z" fill="rgba(37,99,235,.07)"/>`;
+  s += `<path d="${pts.map((p, i) => (i ? "L" : "M") + p.join(",")).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/>`;
+  CURVE.forEach((d, i) => {
+    if (i % 2 === 0 || i === n - 1) s += `<text class="tk" x="${x(i)}" y="${H - B + 18}" text-anchor="middle">${d[0]}</text>`;
+  });
+  // held-out markers
+  for (const [v, h] of Object.entries(HELD)) {
+    const i = CURVE.findIndex(d => d[0] === v);
+    s += `<g class="pt" data-tip="<b>${v} held-out</b> ${h} % (one registered run, 120 episodes)"><rect x="${x(i) - 5}" y="${y(h) - 5}" width="10" height="10" transform="rotate(45 ${x(i)} ${y(h)})" fill="var(--accent-2)"/></g>`;
+  }
+  // annotations: alternate above/below to avoid collisions
+  let k = 0;
+  CURVE.forEach((d, i) => {
+    const lab = ANN[d[0]]; if (!lab) return;
+    const up = d[1] < 70 ? false : (k++ % 2 === 0);
+    const ty = up ? y(d[1]) - 16 : y(d[1]) + 24;
+    const anchor = i > n - 3 ? "end" : (i < 2 ? "start" : "middle");
+    s += `<text class="ann" x="${x(i)}" y="${ty}" text-anchor="${anchor}">${lab}</text>`;
+  });
+  CURVE.forEach((d, i) => {
+    const col = d[3] ? "var(--bad)" : "var(--accent)";
+    s += `<g class="pt" tabindex="0" data-tip="<b>${d[0]}</b> ${d[1].toFixed(1)} % tune<br>${d[2]}"><circle cx="${x(i)}" cy="${y(d[1])}" r="5" fill="${col}" stroke="#fff" stroke-width="1.5"/></g>`;
+  });
+  svg.innerHTML = s;
+  const show = (t, cx, cy) => {
+    tip.innerHTML = t.getAttribute("data-tip"); tip.hidden = false;
+    let px = cx + 14; if (px + tip.offsetWidth > box.clientWidth + box.scrollLeft - 8) px = cx - tip.offsetWidth - 14;
+    tip.style.left = px + "px"; tip.style.top = (cy + 14) + "px";
+  };
+  box.addEventListener("mousemove", e => {
+    const t = e.target.closest("[data-tip]"); if (!t) { tip.hidden = true; return; }
+    const r = box.getBoundingClientRect(); show(t, e.clientX - r.left + box.scrollLeft, e.clientY - r.top);
+  });
+  box.addEventListener("mouseleave", () => tip.hidden = true);
+  svg.addEventListener("focusin", e => {
+    const t = e.target.closest("[data-tip]"); if (!t) return;
+    const c = t.getBoundingClientRect(), r = box.getBoundingClientRect(); show(t, c.left - r.left + box.scrollLeft, c.top - r.top);
+  });
+  svg.addEventListener("focusout", () => tip.hidden = true);
+})();
+
+// ---------- per-tool table ----------
+(function () {
+  const strat = Object.fromEntries(VIDEOS.map(v => [v.tool, v]));
+  const rows = TOOLS.map((t, i) => {
+    const a = V036[i], h = HELD_V016[t], v = strat[t];
+    const cls = n => n === 15 ? "best" : (n < 13 ? "low" : "");
+    return `<tr><td class="left">${pretty(t)}</td><td class="${cls(a)}">${a}<span class="minibar" style="width:${a * 4}px"></span></td><td class="${h === 5 ? "best" : (h < 4 ? "low" : "")}">${h}</td><td class="left" style="color:var(--text-dim)">${stratText(v.strat)}</td></tr>`;
+  });
+  rows.push(`<tr class="highlight"><td class="left">All 24 tools</td><td>342 / 360</td><td>109 / 120</td><td class="left"></td></tr>`);
+  document.querySelector("#toolTable tbody").innerHTML = rows.join("");
+})();
+
+// ---------- video gallery ----------
+(function () {
+  const eps = document.getElementById("eps"), vid = document.getElementById("epVid");
+  const order = TOOLS.map(t => VIDEOS.find(v => v.tool === t));
+  eps.innerHTML = order.map((v, i) => `<button class="ep" type="button" id="ep-${v.tool}" data-i="${i}" aria-pressed="false"><b>${pretty(v.tool)}</b><small class="${v.ok ? "" : "fail"}">${v.ok ? "✓" : "✗"} ${v.secs.toFixed(1)} s · ${v.strat[0]}</small></button>`).join("");
+  function pick(i, play) {
+    const v = order[i];
+    eps.querySelectorAll(".ep").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.i === i)));
+    vid.src = `videos/${v.tool}_${v.ep}.mp4`;
+    if (play) vid.play().catch(() => {});
+    document.getElementById("epName").textContent = pretty(v.tool);
+    document.getElementById("epOk").innerHTML = v.ok ? `<span class="ok">Face down</span>, episode ${v.ep}` : `<span class="no">Not flipped</span> in 80 s, episode ${v.ep} (v021 predates the contact pinch that later solved the scissors)`;
+    document.getElementById("epTime").textContent = `${v.secs.toFixed(1)} s of the 80 s budget`;
+    document.getElementById("epStrat").textContent = stratText(v.strat);
+    document.getElementById("epTune").textContent = `${V036[TOOLS.indexOf(v.tool)]} / 15 tune episodes`;
+  }
+  eps.addEventListener("click", e => { const b = e.target.closest(".ep"); if (b) pick(+b.dataset.i, true); });
+  pick(TOOLS.indexOf("claw_hammer"), false);
+})();
+
+// ---------- grasp grid (renderer from the perception page) ----------
+(function () {
+  const grid = document.getElementById("grasp-grid");
+  if (!grid || !window.GRASPS) return;
+  const NS = "http://www.w3.org/2000/svg", S = 200, PAD = 14;
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const mm = v => Math.round(v * 1000);
+  for (const d of window.GRASPS) {
+    const cells = d.cells;
+    const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const k = (S - 2 * PAD) / (Math.max(x1 - x0, y1 - y0) + 0.03);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const U = y => S / 2 - (y - cy) * k, V = x => S / 2 - (x - cx) * k;
+    const hmax = Math.max(...cells.map(c => c[2]), 0.005);
+    const svg = el("svg", { viewBox: `0 0 ${S} ${S}`, role: "img", "aria-label": `${pretty(d.tool)} height map with grasp candidates` });
+    const cs = Math.max(1.5, d.res * k * 1.15), g0 = el("g", {});
+    for (const [x, y, h] of cells) {
+      const t = Math.min(1, Math.max(0, h / hmax));
+      g0.appendChild(el("rect", { x: U(y) - cs / 2, y: V(x) - cs / 2, width: cs, height: cs, fill: `color-mix(in oklab, var(--hhi) ${Math.round(15 + 85 * t)}%, var(--hlo))` }));
+    }
+    svg.appendChild(g0);
+    const line = (g, stroke, sw, op) => {
+      const a = [g.g[0] - g.c[0] * g.w / 2, g.g[1] - g.c[1] * g.w / 2], b = [g.g[0] + g.c[0] * g.w / 2, g.g[1] + g.c[1] * g.w / 2];
+      return el("line", { x1: U(a[1]), y1: V(a[0]), x2: U(b[1]), y2: V(b[0]), stroke, "stroke-width": sw, "stroke-opacity": op, "stroke-linecap": "round" });
+    };
+    for (const g of d.rejected) svg.appendChild(line(g, "var(--rej)", 1, 0.35));
+    for (const g of d.top.slice(1)) svg.appendChild(line(g, "var(--accent)", 1.6, 0.75));
+    const sel = d.chosen ? { g: d.chosen.g, c: d.chosen.c, w: d.chosen.w } : d.top[0];
+    if (sel) {
+      const Ln = line(sel, "var(--cam)", 3.2, d.chosen ? 1 : 0.55);
+      if (!d.chosen) Ln.setAttribute("stroke-dasharray", "4 3");
+      svg.appendChild(Ln);
+      if (d.chosen) for (const sg of [-1, 1]) {
+        const p = [sel.g[0] + sg * sel.c[0] * (sel.w / 2 + 0.004), sel.g[1] + sg * sel.c[1] * (sel.w / 2 + 0.004)];
+        svg.appendChild(el("rect", { x: U(p[1]) - 3.5, y: V(p[0]) - 3.5, width: 7, height: 7, rx: 1.5, fill: "var(--cam)", stroke: "var(--panel)", "stroke-width": 1 }));
+      }
+    }
+    const m = d.com;
+    svg.appendChild(el("circle", { cx: U(m[1]), cy: V(m[0]), r: 3.6, fill: "var(--fg)", stroke: "var(--panel)", "stroke-width": 1.2 }));
+    const bl = 0.05 * k;
+    svg.appendChild(el("line", { x1: S - 8 - bl, y1: S - 8, x2: S - 8, y2: S - 8, stroke: "var(--muted)", "stroke-width": 1.5 }));
+    const tx = el("text", { x: S - 8 - bl / 2, y: S - 12, "text-anchor": "middle", style: "font-size:9px;fill:var(--muted);font-family:var(--mono)" });
+    tx.textContent = "5 cm"; svg.appendChild(tx);
+    const card = document.createElement("div"); card.className = "gcard";
+    const h = document.createElement("h4");
+    h.innerHTML = `<span>${pretty(d.tool)}</span>` + (d.chosen ? `<span class="pill">${d.chosen.A} hand</span>` : `<span class="pill no">no handover</span>`);
+    card.appendChild(h); card.appendChild(svg);
+    const st = document.createElement("div"); st.className = "stats";
+    const why = !d.chosen && d.why.length ? d.why[d.why.length - 1].replace(/^.*?: /, "") : "";
+    st.innerHTML = `${d.n_cand} sampled · ${d.n_feas} pass filters<br>` +
+      (d.chosen ? `chosen: w ${mm(d.chosen.w)} mm, ${mm(Math.hypot(d.chosen.g[0] - m[0], d.chosen.g[1] - m[1]))} mm from com · try #${d.tried}`
+                : `top-ranked shown dashed · ${d.tried} tries failed: ${why}`);
+    card.appendChild(st);
+    grid.appendChild(card);
+  }
+})();
+
+// ---------- side nav ----------
+(function () {
+  const nav = document.getElementById("sidenav"), links = [...nav.querySelectorAll("a")];
+  const secs = links.map(a => document.querySelector(a.getAttribute("href")));
+  function onScroll() {
+    nav.classList.toggle("shown", window.scrollY > window.innerHeight * 0.6);
+    let cur = 0; secs.forEach((s, i) => { if (s && s.getBoundingClientRect().top < window.innerHeight * 0.4) cur = i; });
+    links.forEach((a, i) => a.classList.toggle("active", i === cur));
+  }
+  window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+})();
+</script>
+
+</body>
+</html>
